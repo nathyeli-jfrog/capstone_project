@@ -1,4 +1,3 @@
-
 import streamlit as st
 import sys
 import os
@@ -6,45 +5,46 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.agent.graph import agente_app
 
-st.set_page_config(page_title="Asistente de Compras", layout="wide")
-st.title("Asistente Autónomo de Compras Públicas")
+st.set_page_config(page_title="Procurement Assistant", layout="wide")
+st.title("Autonomous Public Procurement Agent")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Configuramos el hilo de memoria
-config_grafo = {"configurable": {"thread_id": "sesion_compras_01"}}
+graph_config = {"configurable": {"thread_id": "procurement_session_01"}}
 
-# Dibujar historial
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-solicitud = st.chat_input("Ejemplo: Necesito comprar 10 computadoras por $45,000 USD.")
+current_state = agente_app.get_state(graph_config)
 
-if solicitud:
-    # Guardar mensaje del usuario
-    st.session_state.messages.append({"role": "user", "content": solicitud})
-    with st.chat_message("user"):
-        st.markdown(solicitud)
-        
+if current_state.next and current_state.next[0] == "tools":
+    st.warning("⚠️ **Security Guardrail (Human-in-the-Loop):** The agent has requested to execute tools (Database/RAG). Your authorization is required to proceed.")
+    
+    if st.button("✅ Authorize and Execute Tools"):
+        with st.spinner("Executing authorized tools..."):
+            result = agente_app.invoke(None, graph_config)
+            llm_response = result["messages"][-1].content
+            
+            st.session_state.messages.append({"role": "assistant", "content": llm_response})
+            st.rerun()
+
+user_input = st.chat_input("Enter your purchase requirement...")
+
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    
     with st.chat_message("assistant"):
-        with st.spinner("Analizando requerimiento y políticas..."):
+        with st.spinner("Analyzing requirement..."):
             try:
-                # Invocamos el grafo de forma síncrona y segura
-                resultado = agente_app.invoke(
-                    {"messages": [("user", solicitud)]}, 
-                    config_grafo
+                result = agente_app.invoke(
+                    {"messages": [("user", user_input)]}, 
+                    graph_config
                 )
+                llm_response = result["messages"][-1].content
+                st.session_state.messages.append({"role": "assistant", "content": llm_response})
+                st.rerun()
                 
-                respuesta_llm = resultado["messages"][-1].content
-                st.markdown(respuesta_llm)
-                st.session_state.messages.append({"role": "assistant", "content": respuesta_llm})
-                
-                # Revisar si el grafo se detuvo por el Guardrail
-                estado_grafo = agente_app.get_state(config_grafo)
-                if estado_grafo.next and estado_grafo.next[0] == "tools":
-                    st.warning("⚠️ El agente ha solicitado usar una herramienta. Requiere validación humana en la consola.")
-                    
             except Exception as e:
-                st.error(f"Error de ejecución: {e}")
+                st.error(f"Execution Error: {e}")
