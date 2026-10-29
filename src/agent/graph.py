@@ -26,7 +26,6 @@ def query_regulations(query: str) -> str:
     """
     Searches the current regulations (RAG) for monetary thresholds, applicable procedures, 
     prohibited goods, and business rules for a specific purchase.
-    Example query: 'Amount of 50000 USD for coffee'
     """
     try:
         db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../db/chroma_db"))
@@ -36,17 +35,28 @@ def query_regulations(query: str) -> str:
             model_name=modelo_path,
             model_kwargs={'local_files_only': True}
         )
-        
         vector_store = Chroma(persist_directory=db_path, embedding_function=embeddings)
-        results = vector_store.similarity_search(query, k=5)
         
-        if not results:
-            return "No related regulations found in the current knowledge base."
-            
-        legal_context = "\n\n".join([f"Law Extract:\n{doc.page_content}" for doc in results])
+        # 1. Búsqueda semántica para la solicitud específica del usuario
+        results_user_query = vector_store.similarity_search(query, k=3)
+        
+        # 2. Búsqueda GARANTIZADA para las Disposiciones Generales y Bienes Prohibidos
+        results_prohibitions = vector_store.similarity_search("General Provisions Article 2 Universally Prohibited Goods alcohol gifts luxury", k=2)
+        
+        # Combinar los resultados eliminando duplicados
+        combined_results = []
+        seen_texts = set()
+        
+        for doc in results_prohibitions + results_user_query:
+            if doc.page_content not in seen_texts:
+                seen_texts.add(doc.page_content)
+                combined_results.append(doc)
+        
+        legal_context = "\n\n".join([f"Law Extract:\n{doc.page_content}" for doc in combined_results])
         return f"RECOVERED REGULATIONS:\n{legal_context}"
     except Exception as e:
         return f"RAG_ERROR: Failed to query the document base. Detail: {e}"
+
 
 @tool
 def verify_blocked_vendors(vendor_names: list[str]) -> str:
@@ -114,12 +124,16 @@ def verify_blocked_vendors(vendor_names: list[str]) -> str:
         return f"INTERNAL_ERROR: SQLite database connection failed. Detail: {e}"
 
 @tool
-def generate_draft(procedure_type: str, purchase_details: str, selected_vendors: str) -> str:
-    """Generates the text for the legal justification document, including the vendors."""
+def generate_draft(procedure_type: str, purchase_details: str, threshold_range_cited: str, selected_vendors: str) -> str:
+    """
+    Generates the text for the legal justification document.
+    `threshold_range_cited` must be the exact monetary range extracted dynamically from the active RAG text.
+    """
     return (
         f"\n--- LEGAL DRAFT (PRELIMINARY VERSION) ---\n"
         f"Procedure: {procedure_type}\n"
-        f"Vendors to invite/award: {selected_vendors}\n"
+        f"Cited Threshold Range: {threshold_range_cited}\n"
+        f"Vendors: {selected_vendors}\n"
         f"Details: {purchase_details}\n"
         f"Status: Pending strict human validation."
     )
@@ -140,12 +154,14 @@ def agent_reasoning(state: AgentState):
     You are an Autonomous Public Procurement Agent. Today's date is {today}.
     ALL YOUR RESPONSES AND INTERACTIONS WITH THE USER MUST BE IN ENGLISH.
     
-    YOUR STRICT WORKFLOW AND RULES:
-    1. MANDATORY: Always start by using the `query_regulations` tool sending the amount and the good to purchase. DO NOT use your memory to decide the procedure.
-    2. Read the recovered regulations. If the good is explicitly prohibited, REJECT the purchase immediately and stop.
-    3. If allowed, tell the user which procedure applies according to the law you read.
-    4. If the law requires 3 vendors, demand them from the user and MANDATORILY verify them using `verify_blocked_vendors`.
-    5. Do not invent law articles or vendor names.
+    DYNAMIC REGULATORY WORKFLOW (SINGLE SOURCE OF TRUTH):
+    1. MANDATORY FIRST STEP: Always call `query_regulations` with the requested item and estimated amount.
+    2. DYNAMIC THRESHOLD EXTRACTION: Extract procedural rules, monetary thresholds, and minimum vendor requirements SOLELY from the active text returned by `query_regulations`. DO NOT use hardcoded thresholds or assumptions.
+    3. OBSOLETE REGULATION FILTER: Ignore any document fragment marked as EXPIRED, OBSOLETE, or SUPERSEDED. Enforce ONLY active provisions.
+    4. PROHIBITED GOODS AUDIT: If the recovered active text marks the item as prohibited, REJECT the purchase immediately.
+    5. VENDOR VERIFICATION: If the recovered active text mandates 2, 3, or more vendors for the identified threshold, demand them from the user and verify each using `verify_blocked_vendors`.
+    6. DRAFT GENERATION: Populate the justification draft using ONLY the dynamic values extracted from the active law.
+    7. CURRENCY FORMATTING RULE: NEVER use the '$' symbol when displaying monetary amounts (e.g., write 'USD 60,000' or '60,000 USD' instead of '$60,000').
     """)
     
     full_messages = [system_prompt] + state["messages"]

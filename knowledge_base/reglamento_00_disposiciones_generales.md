@@ -6,7 +6,7 @@ All acquisitions must be strictly linked to business operations and operationall
 
 ## Article 2. Universally Prohibited Goods (STRICT RULE)
 Regardless of the amount, urgency, or procurement procedure used, the purchase of the following goods with institutional funds is **strictly prohibited**:
-- Alcoholic beverages (including tequila, wine, beer, etc.).
+- Alcoholic beverages (including spirits, liquor, whisky, vodka, rum, tequila, wine, beer, etc.).
 - Corporate or personal gifts.
 - Luxury vehicles.
 - Designer furniture.
