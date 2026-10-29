@@ -30,9 +30,14 @@ def query_regulations(query: str) -> str:
     """
     try:
         db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../db/chroma_db"))
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        vector_store = Chroma(persist_directory=db_path, embedding_function=embeddings)
+        modelo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../modelos/all-MiniLM-L6-v2"))
         
+        embeddings = HuggingFaceEmbeddings(
+            model_name=modelo_path,
+            model_kwargs={'local_files_only': True}
+        )
+        
+        vector_store = Chroma(persist_directory=db_path, embedding_function=embeddings)
         results = vector_store.similarity_search(query, k=5)
         
         if not results:

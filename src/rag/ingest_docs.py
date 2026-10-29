@@ -29,8 +29,14 @@ def crear_base_vectorial():
     chunks = text_splitter.split_documents(documentos)
     print(f"-> Se generaron {len(chunks)} fragmentos (chunks).")
     
-    print("3. Generando Embeddings locales...")
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    print("3. Generando Embeddings locales (Modo Offline)...")
+    # Apuntamos a la carpeta física que acabamos de crear
+    ruta_modelo = os.path.join(base_dir, "modelos/all-MiniLM-L6-v2")
+    
+    embeddings = HuggingFaceEmbeddings(
+        model_name=ruta_modelo,
+        model_kwargs={'local_files_only': True} # Bloquea cualquier intento de conexión a internet
+    )
     
     if os.path.exists(db_path):
         shutil.rmtree(db_path)
