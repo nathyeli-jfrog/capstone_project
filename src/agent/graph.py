@@ -13,6 +13,8 @@ from langchain_openai import ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
+from src.db.feedback import get_recent_corrections
+
 load_dotenv()
 MODEL_URL = os.getenv("LLM_BASE_URL")
 API_KEY = os.getenv("LLM_API_KEY", "local")
@@ -149,15 +151,21 @@ llm = ChatOpenAI(
 llm_with_tools = llm.bind_tools(tools)
 
 def agent_reasoning(state: AgentState):
-    today = datetime.date.today().isoformat()
+    today = datetime.date.today()
+    año_actual = today.year
+
+    correcciones = get_recent_corrections()
+
     system_prompt = SystemMessage(content=f"""
-    You are an Autonomous Public Procurement Agent. Today's date is {today}.
+    You are an Autonomous Public Procurement Agent. Today's date is {today.isoformat()}.
     ALL YOUR RESPONSES AND INTERACTIONS WITH THE USER MUST BE IN ENGLISH.
+
+    {correcciones}
     
     DYNAMIC REGULATORY WORKFLOW (SINGLE SOURCE OF TRUTH):
     1. MANDATORY FIRST STEP: Always call `query_regulations` with the requested item and estimated amount.
     2. DYNAMIC THRESHOLD EXTRACTION: Extract procedural rules, monetary thresholds, and minimum vendor requirements SOLELY from the active text returned by `query_regulations`. DO NOT use hardcoded thresholds or assumptions.
-    3. OBSOLETE REGULATION FILTER: Ignore any document fragment marked as EXPIRED, OBSOLETE, or SUPERSEDED. Enforce ONLY active provisions.
+    3. OBSOLETE REGULATION FILTER: Ignore any document fragment marked as EXPIRED, OBSOLETE, or SUPERSEDED. Enforce ONLY active provisions for the year {año_actual}.
     4. PROHIBITED GOODS AUDIT: If the recovered active text marks the item as prohibited, REJECT the purchase immediately.
     5. VENDOR VERIFICATION: If the recovered active text mandates 2, 3, or more vendors for the identified threshold, demand them from the user and verify each using `verify_blocked_vendors`.
     6. DRAFT GENERATION: Populate the justification draft using ONLY the dynamic values extracted from the active law.

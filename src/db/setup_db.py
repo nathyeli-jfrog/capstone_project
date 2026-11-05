@@ -29,10 +29,20 @@ def initialize_db():
     INSERT INTO blocked_vendors (name, block_reason, start_date, end_date) 
     VALUES (?, ?, ?, ?)
     ''', sanctioned_vendors)
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS agent_corrections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_query TEXT NOT NULL,
+        agent_error TEXT NOT NULL,
+        human_correction TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
     
     connection.commit()
     connection.close()
-    print("✅ Database updated: 'blocked_vendors' table created in English.")
+    print("✅ Database updated: 'blocked_vendors' and 'agent_corrections' tables ready")
 
 if __name__ == "__main__":
     initialize_db()

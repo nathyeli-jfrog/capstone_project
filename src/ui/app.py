@@ -5,6 +5,7 @@ import os
 # Configuración de rutas e importación del grafo
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.agent.graph import agente_app
+from src.db.feedback import save_correction
 
 st.set_page_config(page_title="Procurement Assistant", layout="wide")
 st.title("Autonomous Public Procurement Agent")
@@ -61,3 +62,23 @@ if user_input:
                 
             except Exception as e:
                 st.error(f"Execution Error: {e}")
+
+if len(st.session_state.messages) >= 2 and st.session_state.messages[-1]["role"] == "assistant":
+    last_user_query = st.session_state.messages[-2]["content"]
+    last_agent_response = st.session_state.messages[-1]["content"]
+    
+    st.markdown("---")
+    with st.expander("⚠️ Provide Correction / Override Agent Decision"):
+        st.write("If the agent made a regulatory mistake, log the correction here. The agent will memorize it for future requests.")
+        
+        with st.form("feedback_form", clear_on_submit=True):
+            human_correction = st.text_area("Describe the correct procedure or rule the agent missed:")
+            submitted = st.form_submit_button("💾 Save Correction to Memory")
+            
+            if submitted and human_correction:
+                try:
+                    # Delegamos la responsabilidad de escritura a la capa de datos
+                    save_correction(last_user_query, last_agent_response, human_correction)
+                    st.success("✅ Correction saved successfully! The agent's reasoning logic has been updated.")
+                except Exception as e:
+                    st.error(f"Failed to save correction: {e}")                

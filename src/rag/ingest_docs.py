@@ -1,5 +1,6 @@
 import os
 import shutil
+import datetime
 # Agregamos TextLoader a la importación
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -11,6 +12,8 @@ base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 knowledge_base_dir = os.path.join(base_dir, "knowledge_base")
 db_path = os.path.join(base_dir, "src/db/chroma_db")
 
+año_actual = datetime.date.today().year
+
 def crear_base_vectorial():
     print("1. Cargando documentos normativos...")
     # OPTIMIZACIÓN CLAVE: Usar loader_cls=TextLoader evita errores de dependencias pesadas
@@ -21,6 +24,14 @@ def crear_base_vectorial():
         show_progress=True
     )
     documentos = loader.load()
+
+    for doc in documentos:
+        filename = os.path.basename(doc.metadata["source"])
+        if filename.startswith("archive_") or "EXPIRED" in doc.page_content:
+            doc.metadata["status"] = "expired"
+        else:
+            doc.metadata["status"] = "active"
+            doc.metadata["effective_year"] = año_actual # <-- Dinámico
     
     print(f"-> Se cargaron {len(documentos)} documentos.")
     
