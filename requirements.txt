@@ -1,0 +1,12 @@
+streamlit==1.32.0
+langchain==0.1.13
+langchain-openai==0.1.1
+langchain-chroma==0.1.0
+langchain-huggingface==0.0.2
+langgraph==0.0.26
+python-dotenv==1.0.1
+chromadb==0.4.24
+# Observability (100% Local Air-Gapped)
+phoenix==3.15.0
+openinference-instrumentation-langchain==0.1.11
+opentelemetry-exporter-otlp==1.23.0
